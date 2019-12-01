@@ -1,11 +1,11 @@
 import { Appservice, LogService } from "matrix-bot-sdk";
-import MixerClient from "./MixerClient";
+import MixerClient, { MixerChannel } from "./MixerClient";
 import config from "./config";
 import MixerStream from "./MixerStream";
 
 export default class MixerBridge {
     private defaultMixer: MixerClient;
-    private channels: {[roomId: number]: MixerStream} = {};
+    private channels: { [roomId: number]: MixerStream } = {};
 
     constructor(private appservice: Appservice) {
         appservice.on("query.room", this.onQueryAlias.bind(this));
@@ -35,11 +35,20 @@ export default class MixerBridge {
             if (!ident || !ident['channelId']) throw new Error("Invalid channel identity event");
             const channelId = ident['channelId'];
             LogService.info("MixerBridge", `Bridging ${channelId} to ${roomId}`);
-            this.channels[roomId] = new MixerStream(this.defaultMixer, this.appservice, channelId, roomId);
+            this.channels[roomId] = new MixerStream(this.defaultMixer, this.appservice, this, channelId, roomId);
             await this.channels[roomId].start();
         } catch (e) {
             LogService.warn("MixerBridge", e);
         }
+    }
+
+    public calculateRoomDecoration(channelInfo: MixerChannel): { name: string, topic: string, avatarUrl: string } {
+        // TODO: Flag room as live streaming
+        const name = `${channelInfo.username}: ${channelInfo.name}`;
+        const topic = channelInfo.description;
+        const avatarUrl = ""; // TODO: Upload avatar if needed
+
+        return {name, topic, avatarUrl};
     }
 
     private async onQueryAlias(roomAlias: string, createRoomFn: (roomCreationContent) => null): Promise<any> {
@@ -48,13 +57,22 @@ export default class MixerBridge {
             const channel = await this.defaultMixer.getChannel(suffix);
             if (!channel) return createRoomFn(false);
 
+            const decoration = this.calculateRoomDecoration(channel);
+
             LogService.info("MixerBridge", `Creating room for ${suffix} (${channel.channelId})`);
             createRoomFn({
                 preset: "public_chat",
                 visibility: "public",
-                name: channel.name,
-                topic: "",
+                name: decoration.name,
+                topic: decoration.topic,
                 initial_state: [
+                    {
+                        type: "m.room.avatar",
+                        state_key: "",
+                        content: {
+                            url: decoration.avatarUrl,
+                        },
+                    },
                     {
                         type: "io.t2bot.mixer.channel",
                         state_key: "",

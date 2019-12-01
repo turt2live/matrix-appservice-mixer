@@ -7,6 +7,7 @@ export interface MixerChannel {
     name: string;
     live: boolean;
     avatarUrl: string;
+    description: string;
 }
 
 export default class MixerClient {
@@ -50,8 +51,9 @@ export default class MixerClient {
             const avatarUrl = channelInfo.user.avatarUrl;
             const live = channelInfo.online;
             const username = channelInfo.user.username;
+            const description = channelInfo.type ? channelInfo.type.name : null;
 
-            return {channelId, name, avatarUrl, live, username};
+            return {channelId, name, avatarUrl, live, username, description};
         } catch (e) {
             LogService.error("MixerClient", e);
             return null;

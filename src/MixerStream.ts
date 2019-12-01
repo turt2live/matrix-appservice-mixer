@@ -3,10 +3,18 @@ import { Appservice, Intent, LogService, MentionPill } from "matrix-bot-sdk";
 import * as Mixer from "@mixer/client-node";
 import * as ws from "ws";
 import * as escapeHtml from "escape-html";
+import MixerBridge from "./MixerBridge";
 
 export default class MixerStream {
 
-    constructor(private client: MixerClient, private appservice: Appservice, private channelId: number, private roomId: string) {
+    constructor(
+        private client: MixerClient,
+        private appservice: Appservice,
+        private bridge: MixerBridge,
+        private channelId: number,
+        private roomId: string,
+    ) {
+        //
     }
 
     public async start() {
@@ -27,8 +35,9 @@ export default class MixerStream {
 
         socket.on('ChatMessage', async (data: Mixer.IChatMessage) => {
             const intent = this.appservice.getIntentForSuffix(data.user_name);
-            await intent.ensureRegisteredAndJoined(this.roomId);
-            await this.updateProfileFor(intent, data);
+            await intent.ensureRegistered();
+            await this.updateProfileFor(intent, data); // update profile before join
+            await intent.ensureJoined(this.roomId);
             await this.bridgeMessage(intent, data);
         });
 
@@ -37,6 +46,7 @@ export default class MixerStream {
 
     private async updateRoom() {
         const channelInfo = await this.client.getChannel(this.channelId);
+        const decoration = this.bridge.calculateRoomDecoration(channelInfo);
         const powerLevels = {
             ban: 50,
             events_default: 0,
@@ -61,10 +71,13 @@ export default class MixerStream {
             },
         };
         const name = {
-            name: channelInfo.name,
+            name: decoration.name,
         };
         const avatar = {
-            url: channelInfo.avatarUrl ? await this.appservice.botClient.uploadContentFromUrl(channelInfo.avatarUrl) : null,
+            url: decoration.avatarUrl,
+        };
+        const topic = {
+            topic: decoration.topic,
         };
         // const widget = {
         //     type: "im.vector.modular.widgets",
@@ -86,6 +99,7 @@ export default class MixerStream {
         await this.appservice.botClient.sendStateEvent(this.roomId, "m.room.power_levels", "", powerLevels);
         await this.appservice.botClient.sendStateEvent(this.roomId, "m.room.name", "", name);
         await this.appservice.botClient.sendStateEvent(this.roomId, "m.room.avatar", "", avatar);
+        await this.appservice.botClient.sendStateEvent(this.roomId, "m.room.topic", "", topic);
     }
 
     private async bridgeMessage(intent: Intent, data: Mixer.IChatMessage) {
