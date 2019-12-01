@@ -46,7 +46,7 @@ export default class MixerStream {
 
     private async updateRoom() {
         const channelInfo = await this.client.getChannel(this.channelId);
-        const decoration = this.bridge.calculateRoomDecoration(channelInfo);
+        const decoration = await this.bridge.calculateRoomDecoration(channelInfo);
         const powerLevels = {
             ban: 50,
             events_default: 0,
@@ -74,10 +74,10 @@ export default class MixerStream {
             name: decoration.name,
         };
         const avatar = {
-            url: decoration.avatarUrl,
+            url: decoration.avatarUrl ? decoration.avatarUrl : "",
         };
         const topic = {
-            topic: decoration.topic,
+            topic: decoration.topic ? decoration.topic : "",
         };
         // const widget = {
         //     type: "im.vector.modular.widgets",
@@ -149,8 +149,7 @@ export default class MixerStream {
             try {
                 const avatarUrl = (<any>data).user_avatar;
                 if (avatarUrl) {
-                    // TODO: Cache URL:MXC maps
-                    const mxc = await intent.underlyingClient.uploadContentFromUrl(avatarUrl);
+                    const mxc = await this.bridge.internalMediaCache.uploadFromUrl(avatarUrl, intent);
                     await intent.underlyingClient.setAvatarUrl(mxc);
                 }
             } catch (e) {

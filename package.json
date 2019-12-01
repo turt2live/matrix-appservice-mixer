@@ -17,6 +17,7 @@
     "config": "^3.2.4",
     "escape-html": "^1.0.3",
     "js-yaml": "^3.13.1",
+    "lru-cache": "^5.1.1",
     "matrix-bot-sdk": "^0.4.0",
     "ws": "^7.2.0"
   },

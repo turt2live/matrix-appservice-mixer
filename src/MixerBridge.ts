@@ -2,10 +2,12 @@ import { Appservice, LogService } from "matrix-bot-sdk";
 import MixerClient, { MixerChannel } from "./MixerClient";
 import config from "./config";
 import MixerStream from "./MixerStream";
+import MediaCache from "./caches/MediaCache";
 
 export default class MixerBridge {
     private defaultMixer: MixerClient;
     private channels: { [roomId: number]: MixerStream } = {};
+    private mediaCache: MediaCache;
 
     constructor(private appservice: Appservice) {
         appservice.on("query.room", this.onQueryAlias.bind(this));
@@ -13,6 +15,11 @@ export default class MixerBridge {
         appservice.on("room.join", (roomId, ev) => this.startChannel(roomId));
 
         this.defaultMixer = new MixerClient(config.mixer.token, config.mixer.clientId);
+        this.mediaCache = new MediaCache(this.appservice);
+    }
+
+    public get internalMediaCache(): MediaCache {
+        return this.mediaCache;
     }
 
     public async start() {
@@ -42,11 +49,11 @@ export default class MixerBridge {
         }
     }
 
-    public calculateRoomDecoration(channelInfo: MixerChannel): { name: string, topic: string, avatarUrl: string } {
+    public async calculateRoomDecoration(channelInfo: MixerChannel): Promise<{ name: string, topic: string, avatarUrl: string }> {
         // TODO: Flag room as live streaming
         const name = `${channelInfo.username}: ${channelInfo.name}`;
         const topic = channelInfo.description;
-        const avatarUrl = ""; // TODO: Upload avatar if needed
+        const avatarUrl = channelInfo.avatarUrl ? await this.mediaCache.uploadFromUrl(channelInfo.avatarUrl) : null;
 
         return {name, topic, avatarUrl};
     }
@@ -57,20 +64,20 @@ export default class MixerBridge {
             const channel = await this.defaultMixer.getChannel(suffix);
             if (!channel) return createRoomFn(false);
 
-            const decoration = this.calculateRoomDecoration(channel);
+            const decoration = await this.calculateRoomDecoration(channel);
 
             LogService.info("MixerBridge", `Creating room for ${suffix} (${channel.channelId})`);
             createRoomFn({
                 preset: "public_chat",
                 visibility: "public",
                 name: decoration.name,
-                topic: decoration.topic,
+                topic: decoration.topic ? decoration.topic : "",
                 initial_state: [
                     {
                         type: "m.room.avatar",
                         state_key: "",
                         content: {
-                            url: decoration.avatarUrl,
+                            url: decoration.avatarUrl ? decoration.avatarUrl : "",
                         },
                     },
                     {
