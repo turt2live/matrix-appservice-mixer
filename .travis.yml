@@ -1,0 +1,12 @@
+language: node_js
+node_js:
+  - "10"
+  - "12"
+env:
+- NODE_ENV=development
+install:
+  - yarn install
+script:
+  - yarn build
+  - yarn lint
+

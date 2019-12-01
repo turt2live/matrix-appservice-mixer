@@ -1,0 +1,22 @@
+# Appservice registration information
+appservice:
+  asToken: "RANDOM_STRING"
+  hsToken: "RANDOM_STRING"
+  senderLocalpart: "_mixer"
+  userPrefix: "_mixer"
+  aliasPrefix: "_mixer"
+  domainName: "localhost"
+  homeserverUrl: "http://localhost:8008"
+
+# Configuration related to the web portion of the bridge.
+web:
+  bindAddress: 0.0.0.0
+  bindPort: 9000
+
+# Information about the Mixer OAuth app
+mixer:
+  token: "YOUR_TOKEN_HERE"
+  clientId: "YOUR_CLIENT_ID_HERE"
+
+database:
+  misc: "appservice.json"

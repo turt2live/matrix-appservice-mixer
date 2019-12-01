@@ -1,0 +1,28 @@
+{
+  "name": "matrix-appservice-mixer",
+  "version": "0.0.1",
+  "description": "A Matrix bridge for Mixer",
+  "main": "lib/index.js",
+  "repository": "git@github.com:turt2live/matrix-appservice-mixer.git",
+  "author": "Travis Ralston <travis@t2bot.io>",
+  "license": "Apache-2.0",
+  "private": false,
+  "devDependencies": {
+    "@types/node": "^12.12.14",
+    "tslint": "^5.20.1",
+    "typescript": "^3.7.2"
+  },
+  "dependencies": {
+    "@mixer/client-node": "^3.5.0",
+    "config": "^3.2.4",
+    "escape-html": "^1.0.3",
+    "js-yaml": "^3.13.1",
+    "matrix-bot-sdk": "^0.4.0",
+    "ws": "^7.2.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tslint --project ./tsconfig.json -t stylish",
+    "start:dev": "yarn build && node lib/index.js"
+  }
+}
