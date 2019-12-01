@@ -13,6 +13,7 @@ export default class MixerBridge {
         appservice.on("query.room", this.onQueryAlias.bind(this));
         appservice.on("query.user", () => false); // disable user queries
         appservice.on("room.join", (roomId, ev) => this.startChannel(roomId));
+        appservice.on("room.message", this.onMessage.bind(this));
 
         this.defaultMixer = new MixerClient(config.mixer.token, config.mixer.clientId);
         this.mediaCache = new MediaCache(this.appservice);
@@ -35,12 +36,14 @@ export default class MixerBridge {
         }
     }
 
-    private async startChannel(roomId: string) {
-        if (this.channels[roomId]) return;
+    private async startChannel(roomId: string, channelId: number = null) {
+        if (this.channels[roomId] || !roomId) return;
         try {
-            const ident = await this.appservice.botClient.getRoomStateEvent(roomId, "io.t2bot.mixer.channel", "");
-            if (!ident || !ident['channelId']) throw new Error("Invalid channel identity event");
-            const channelId = ident['channelId'];
+            if (!channelId) {
+                const ident = await this.appservice.botClient.getRoomStateEvent(roomId, "io.t2bot.mixer.channel", "");
+                if (!ident || !ident['channelId']) throw new Error("Invalid channel identity event");
+                channelId = ident['channelId'];
+            }
             LogService.info("MixerBridge", `Bridging ${channelId} to ${roomId}`);
             this.channels[roomId] = new MixerStream(this.defaultMixer, this.appservice, this, channelId, roomId);
             await this.channels[roomId].start();
@@ -53,9 +56,21 @@ export default class MixerBridge {
         // TODO: Flag room as live streaming
         const name = `${channelInfo.username}: ${channelInfo.name}`;
         const topic = channelInfo.description;
-        const avatarUrl = channelInfo.avatarUrl ? await this.mediaCache.uploadFromUrl(channelInfo.avatarUrl) : null;
+        let avatarUrl = null;
+        if (channelInfo.avatarUrl) {
+            try {
+                avatarUrl = await this.mediaCache.uploadFromUrl(channelInfo.avatarUrl);
+            } catch (e) {
+                LogService.warn("MixerBridge", e);
+            }
+        }
 
         return {name, topic, avatarUrl};
+    }
+
+    private async onMessage(roomId: string, event: any) {
+        if (this.appservice.isNamespacedUser(event['sender'])) return;
+        await this.appservice.botClient.redactEvent(roomId, event['event_id'], "Two-way chat is not supported");
     }
 
     private async onQueryAlias(roomAlias: string, createRoomFn: (roomCreationContent) => null): Promise<any> {
@@ -67,7 +82,7 @@ export default class MixerBridge {
             const decoration = await this.calculateRoomDecoration(channel);
 
             LogService.info("MixerBridge", `Creating room for ${suffix} (${channel.channelId})`);
-            createRoomFn({
+            const roomObj = {
                 preset: "public_chat",
                 visibility: "public",
                 name: decoration.name,
@@ -126,7 +141,9 @@ export default class MixerBridge {
                         room: 50,
                     },
                 },
-            });
+            };
+            await createRoomFn(roomObj);
+            this.startChannel(roomObj['__roomId'], channel.channelId);
         } catch (e) {
             LogService.error("MixerBridge", e);
             return createRoomFn(false);

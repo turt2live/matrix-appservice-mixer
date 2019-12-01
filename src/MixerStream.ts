@@ -20,6 +20,9 @@ export default class MixerStream {
     public async start() {
         LogService.info(`MixerStream@${this.channelId}`, `Joining stream: ${this.channelId}`);
         const chatDetails = <any>(await this.client.mixerChatService.join(this.channelId)).body;
+
+        await this.updateRoom();
+
         const socket = new Mixer.Socket(ws, chatDetails.endpoints).boot();
 
         // This can happen async - things will queue up
@@ -40,8 +43,6 @@ export default class MixerStream {
             await intent.ensureJoined(this.roomId);
             await this.bridgeMessage(intent, data);
         });
-
-        await this.updateRoom();
     }
 
     private async updateRoom() {
